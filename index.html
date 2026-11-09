@@ -3,98 +3,103 @@
 <head>
   <meta charset="UTF-8">
   <title>Tierpark Ecosystem Services</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Viewport fit prevents zoom issues and handles notches on modern phones -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   
   <style>
-    body { 
+    /* Mobile-First Layout Reset */
+    * { box-sizing: border-box; }
+    body, html { 
       margin: 0; 
       padding: 0; 
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      display: flex; 
-      flex-direction: column; 
-      height: 100vh; 
+      /* Uses dynamic viewport height so mobile browser bars don't break the layout */
+      height: 100dvh; 
       background-color: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden; 
     }
     
+    /* Top Information Card */
     #info-panel { 
       padding: 20px; 
       background: #ffffff; 
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       z-index: 1000;
+      flex-shrink: 0;
+      max-height: 50vh; /* Prevents text from covering the whole map */
+      overflow-y: auto;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
     }
-    h2 { margin-top: 0; color: #2c3e50; font-size: 1.4rem; }
-    p { color: #555; line-height: 1.5; font-size: 1.05rem; }
     
-    .success-heading { color: #27ae60; font-weight: bold; }
+    h2 { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.25rem; }
+    p { margin: 0 0 10px 0; color: #4a5568; line-height: 1.5; font-size: 1rem; }
+    .success-heading { color: #27ae60; font-weight: 800; font-size: 1.15rem; display: block; margin-bottom: 8px;}
     
+    /* Action Area & Button */
     #action-area {
       display: none; 
-      margin-top: 20px;
+      margin-top: 15px;
       padding-top: 15px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid #edf2f7;
     }
-    
     .action-text {
-      font-weight: bold;
-      color: #2c3e50;
-      margin-bottom: 10px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 12px;
+      text-align: center;
     }
-
     .btn-next {
-      background-color: #3498db;
+      background-color: #3182ce;
       color: white;
       border: none;
-      padding: 12px 20px;
-      border-radius: 6px;
+      padding: 14px 20px;
+      border-radius: 8px;
       font-size: 1.1rem;
       font-weight: bold;
       cursor: pointer;
       width: 100%;
-      box-shadow: 0 2px 4px rgba(52,152,219,0.3);
+      box-shadow: 0 4px 6px rgba(49, 130, 206, 0.2);
     }
-    .btn-next:hover { background-color: #2980b9; }
+    .btn-next:active { background-color: #2b6cb0; }
     
-    #map-wrapper {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      padding: 0 20px 20px 20px;
-    }
+    /* Map Area */
     #map { 
-      flex: 1; 
+      flex-grow: 1; 
       width: 100%; 
-      border-radius: 8px;
-      border: 2px solid #ddd;
-      margin-top: 15px;
+      z-index: 1; 
     }
   </style>
 </head>
 <body>
 
-  <!-- The Information Panel -->
+  <!-- Top Info Panel -->
   <div id="info-panel">
     <h2 id="status-heading">Tierpark Zittau Explorer</h2>
     <div id="status-text">
-      <p>Tap any red circle on the map or walk towards it to uncover its hidden ecosystem service!</p>
+      <p>Tap any map pin below or walk towards it to uncover its hidden ecosystem service!</p>
     </div>
     
-    <!-- This section stays hidden until a spot is clicked or reached -->
     <div id="action-area">
-      <div class="action-text">Discover more spots to finish the quest</div>
-      <button class="btn-next" onclick="scrollToMap()">Find next..</button>
+      <div class="action-text">Discover more spots to finish the quest 👇</div>
+      <button class="btn-next" onclick="resetView()">Find next..</button>
     </div>
   </div>
 
-  <!-- The Map Section -->
-  <div id="map-wrapper">
-    <div id="map"></div>
-  </div>
+  <!-- Map Area -->
+  <div id="map"></div>
 
   <script>
-    var map = L.map('map').setView([50.901860, 14.831783], 17);
+    // 1. Initialize Map. Hide default top-left zoom so it doesn't get covered by the text panel.
+    var map = L.map('map', { zoomControl: false }).setView([50.901860, 14.831783], 17);
+    
+    // Move zoom controls to the bottom right of the screen
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -120,48 +125,59 @@
       }
     ];
 
-    // Master function to handle unlocking content (works for both GPS and clicking)
+    var circles = {};
+    var markers = {};
+
     function unlockStation(st) {
       if (!st.unlocked) {
         st.unlocked = true;
+        // Turn the circle green to show completion
         circles[st.id].setStyle({color: '#27ae60', fillColor: '#2ecc71'});
+        // Fade the pin out slightly so they know it's "done"
+        markers[st.id].setOpacity(0.5); 
       }
       
-      // Inject new text and details
-      document.getElementById('status-heading').innerHTML = "<span class='success-heading'>Congratulations you have discovered an ecosystem service!</span>";
+      document.getElementById('status-heading').innerHTML = "<span class='success-heading'>Congratulations! You have discovered an ecosystem service!</span>";
       document.getElementById('status-text').innerHTML = st.info;
-      
-      // Reveal the "discover more" text and button
       document.getElementById('action-area').style.display = "block";
       
-      // Automatically scroll to the top so they can read the info on small screens
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      // Auto-pan the map to center on the spot they just clicked
+      map.flyTo([st.lat, st.lng], 18, { duration: 0.5 });
     }
 
-    // Scroll to the map when the "Find next.." button is clicked
-    function scrollToMap() {
-      document.getElementById('map-wrapper').scrollIntoView({ behavior: 'smooth' });
+    function resetView() {
+      // Zooms out to show all stations so they can easily find the next one
+      var bounds = L.latLngBounds(stations.map(function(st) { return [st.lat, st.lng]; }));
+      
+      // The paddingTopLeft ensures the map centers *below* the white text card
+      var panelHeight = document.getElementById('info-panel').offsetHeight;
+      map.fitBounds(bounds, { padding: [20, 20], paddingTopLeft: [0, panelHeight] });
     }
 
-    var circles = {};
+    // Generate Map Visuals
     stations.forEach(st => {
+      // 1. Draw the radius circle (Visual only)
       var circle = L.circle([st.lat, st.lng], {
         color: '#e74c3c',
         fillColor: '#e74c3c',
-        fillOpacity: 0.4, // Increased opacity to make tapping easier
-        radius: 25 
+        fillOpacity: 0.2,
+        radius: 25,
+        interactive: false // Turn off click here so it doesn't block the pin
       }).addTo(map);
-      
-      // Allows users to bypass GPS and unlock the service by tapping the circle directly
-      circle.on('click', function() {
+      circles[st.id] = circle;
+
+      // 2. Drop the physical map pin (This fixes the mobile touch issue!)
+      var marker = L.marker([st.lat, st.lng]).addTo(map);
+      markers[st.id] = marker;
+
+      // 3. Bind the touch/click event securely to the pin
+      marker.on('click', function() {
         unlockStation(st);
       });
-
-      circles[st.id] = circle;
     });
 
     var userMarker = L.circleMarker([0,0], {
-      color: '#ffffff', weight: 2, fillColor: '#3498db', fillOpacity: 1, radius: 8
+      color: '#ffffff', weight: 2, fillColor: '#3498db', fillOpacity: 1, radius: 8, zIndexOffset: 1000
     }).addTo(map);
 
     if ('geolocation' in navigator) {
