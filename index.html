@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tierpark Ecosystem Services</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  
+  <!-- Load Leaflet Map CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  
+  <style>
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+    #map { flex: 2; width: 100%; }
+    #info-panel { flex: 1; padding: 20px; background: #f4f7f6; overflow-y: auto; border-top: 3px solid #2c3e50; }
+    h2 { margin-top: 0; color: #2c3e50; }
+    .success-msg { color: #27ae60; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <!-- The Map -->
+  <div id="map"></div>
+  
+  <!-- The Information Panel -->
+  <div id="info-panel">
+    <h2>Welcome to the Safari! 🌿</h2>
+    <p>Walk towards the blue circles on the map. When you are within 25 meters, the Ecosystem Service information will automatically unlock here!</p>
+  </div>
+
+  <script>
+    // 1. Initialize Map centered on Tierpark Zittau
+    var map = L.map('map').setView([50.8986, 14.8197], 17);
+    
+    // Load free OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // 2. Define your Ecosystem Service Stations here
+    var stations = [
+      { 
+        id: 1, 
+        name: "Wetland Enclosure", 
+        lat: 50.8990, 
+        lng: 14.8200, 
+        unlocked: false, 
+        info: "<span class='success-msg'>✓ Discovered!</span><br><br><b>Water Purification & Flood Buffer:</b> Wetlands act as natural sponges, filtering pollutants from the water and holding excess rain to prevent flooding." 
+      },
+      { 
+        id: 2, 
+        name: "Old Beech Tree Canopy", 
+        lat: 50.8980, 
+        lng: 14.8185, 
+        unlocked: false, 
+        info: "<span class='success-msg'>✓ Discovered!</span><br><br><b>Microclimate Regulation:</b> Large canopies block sunlight and transpire water, actively cooling the surrounding air by several degrees." 
+      }
+      // You can copy/paste and add Spots 3 through 10 right here!
+    ];
+
+    // Draw the 25-meter geofence circles on the map
+    var circles = {};
+    stations.forEach(st => {
+      circles[st.id] = L.circle([st.lat, st.lng], {
+        color: '#e74c3c',
+        fillColor: '#e74c3c',
+        fillOpacity: 0.2,
+        radius: 25 // 25 meter trigger zone
+      }).addTo(map).bindPopup("<b>" + st.name + "</b><br>Get closer to unlock!");
+    });
+
+    // Create a blue dot for the user's live location
+    var userMarker = L.circleMarker([0,0], {
+      color: '#2980b9', fillColor: '#3498db', fillOpacity: 1, radius: 8
+    }).addTo(map);
+
+    // 3. Start GPS Tracking
+    if ('geolocation' in navigator) {
+      navigator.geolocation.watchPosition(function(position) {
+        var userLat = position.coords.latitude;
+        var userLng = position.coords.longitude;
+        
+        // Move the blue dot to the user's current location
+        userMarker.setLatLng([userLat, userLng]);
+
+        // 4. Check if user has stepped inside any 25-meter circle
+        stations.forEach(st => {
+          if (!st.unlocked) {
+            // Leaflet calculates the exact distance in meters
+            var distance = map.distance([userLat, userLng], [st.lat, st.lng]);
+            
+            if (distance <= 25) {
+              st.unlocked = true;
+              // Change circle color to green
+              circles[st.id].setStyle({color: '#27ae60', fillColor: '#2ecc71'});
+              // Display the educational info in the bottom panel
+              document.getElementById('info-panel').innerHTML = "<h2>" + st.name + "</h2><p>" + st.info + "</p>";
+            }
+          }
+        });
+      }, function(error) {
+        console.log("GPS Error: ", error);
+      }, { enableHighAccuracy: true }); // Forces phone to use real GPS, not just cell towers
+    } else {
+      document.getElementById('info-panel').innerHTML = "<p>Please enable GPS location services to play.</p>";
+    }
+  </script>
+</body>
+</html>
