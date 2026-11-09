@@ -1,35 +1,79 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Tierpark Ecosystem Services</title>
+  <!-- Ensures the page scales correctly on mobile phones -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   
-  <!-- Load Leaflet Map CSS and JS -->
+  <!-- Leaflet Map CSS and JS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   
   <style>
-    body { margin: 0; padding: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; }
-    #map { flex: 2; width: 100%; }
-    #info-panel { flex: 1; padding: 20px; background: #f4f7f6; overflow-y: auto; border-top: 3px solid #2c3e50; }
-    h2 { margin-top: 0; color: #2c3e50; }
-    .success-msg { color: #27ae60; font-weight: bold; }
+    body { 
+      margin: 0; 
+      padding: 0; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+      display: flex; 
+      flex-direction: column; 
+      height: 100vh; 
+      background-color: #f8f9fa;
+    }
+    
+    /* Top Information Panel */
+    #info-panel { 
+      padding: 20px; 
+      background: #ffffff; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000;
+    }
+    h2 { margin-top: 0; color: #2c3e50; font-size: 1.4rem; }
+    p { color: #555; line-height: 1.5; font-size: 1.05rem; }
+    
+    .success-heading { 
+      color: #27ae60; 
+      font-weight: bold; 
+    }
+    
+    /* Bottom Map Section */
+    #map-wrapper {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      padding: 0 20px 20px 20px;
+    }
+    h3 { 
+      margin-top: 20px; 
+      margin-bottom: 10px; 
+      color: #34495e; 
+      font-size: 1.1rem; 
+    }
+    #map { 
+      flex: 1; 
+      width: 100%; 
+      border-radius: 8px;
+      border: 2px solid #ddd;
+    }
   </style>
 </head>
 <body>
 
-  <!-- The Map -->
-  <div id="map"></div>
-  
-  <!-- The Information Panel -->
+  <!-- The Information Panel (Top) -->
   <div id="info-panel">
-    <h2>Welcome to the Safari! 🌿</h2>
-    <p>Walk towards the blue circles on the map. When you are within 25 meters, the Ecosystem Service information will automatically unlock here!</p>
+    <h2 id="status-heading">Tierpark Zittau Explorer</h2>
+    <p id="status-text">Walk towards the red circles on the map. The ecosystem service will unlock automatically when you are close!</p>
+  </div>
+
+  <!-- The Map Section (Bottom) -->
+  <div id="map-wrapper">
+    <h3 id="map-heading">Find the hidden services</h3>
+    <div id="map"></div>
   </div>
 
   <script>
-    // 1. Initialize Map centered on Tierpark Zittau
-    var map = L.map('map').setView([50.8986, 14.8197], 17);
+    // 1. Initialize Map centered on your provided Zittau coordinate
+    var map = L.map('map').setView([50.901860, 14.831783], 17);
     
     // Load free OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -37,41 +81,41 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // 2. Define your Ecosystem Service Stations here
+    // 2. Define the Ecosystem Service Stations
     var stations = [
       { 
         id: 1, 
-        name: "Wetland Enclosure", 
-        lat: 50.8990, 
-        lng: 14.8200, 
+        name: "Central Tierpark Enclosure", 
+        lat: 50.901860, 
+        lng: 14.831783, 
         unlocked: false, 
-        info: "<span class='success-msg'>✓ Discovered!</span><br><br><b>Water Purification & Flood Buffer:</b> Wetlands act as natural sponges, filtering pollutants from the water and holding excess rain to prevent flooding." 
+        info: "<b>Cultural & Educational Value:</b> This specific location provides a space for learning about native and exotic biodiversity, fostering a deep connection with nature." 
       },
-      { 
-        id: 2, 
-        name: "Old Beech Tree Canopy", 
-        lat: 50.8980, 
-        lng: 14.8185, 
-        unlocked: false, 
-        info: "<span class='success-msg'>✓ Discovered!</span><br><br><b>Microclimate Regulation:</b> Large canopies block sunlight and transpire water, actively cooling the surrounding air by several degrees." 
+      // You can add Spots 2 through 10 below by copying the block above
+      {
+        id: 2,
+        name: "Weinaupark Woodland Edge",
+        lat: 50.902500,
+        lng: 14.831000,
+        unlocked: false,
+        info: "<b>Microclimate Regulation:</b> The dense trees here provide vital shade and cooling through evapotranspiration."
       }
-      // You can copy/paste and add Spots 3 through 10 right here!
     ];
 
-    // Draw the 25-meter geofence circles on the map
+    // Draw the 25-meter trigger zones on the map
     var circles = {};
     stations.forEach(st => {
       circles[st.id] = L.circle([st.lat, st.lng], {
         color: '#e74c3c',
         fillColor: '#e74c3c',
         fillOpacity: 0.2,
-        radius: 25 // 25 meter trigger zone
+        radius: 25 // Adjust this if the canopy causes GPS drift
       }).addTo(map).bindPopup("<b>" + st.name + "</b><br>Get closer to unlock!");
     });
 
     // Create a blue dot for the user's live location
     var userMarker = L.circleMarker([0,0], {
-      color: '#2980b9', fillColor: '#3498db', fillOpacity: 1, radius: 8
+      color: '#ffffff', weight: 2, fillColor: '#3498db', fillOpacity: 1, radius: 8
     }).addTo(map);
 
     // 3. Start GPS Tracking
@@ -80,29 +124,33 @@
         var userLat = position.coords.latitude;
         var userLng = position.coords.longitude;
         
-        // Move the blue dot to the user's current location
+        // Move the blue dot to the user's exact current location
         userMarker.setLatLng([userLat, userLng]);
 
         // 4. Check if user has stepped inside any 25-meter circle
         stations.forEach(st => {
           if (!st.unlocked) {
-            // Leaflet calculates the exact distance in meters
             var distance = map.distance([userLat, userLng], [st.lat, st.lng]);
             
             if (distance <= 25) {
+              // Mark as unlocked so it doesn't trigger repeatedly
               st.unlocked = true;
-              // Change circle color to green
+              
+              // Change the map circle color to green
               circles[st.id].setStyle({color: '#27ae60', fillColor: '#2ecc71'});
-              // Display the educational info in the bottom panel
-              document.getElementById('info-panel').innerHTML = "<h2>" + st.name + "</h2><p>" + st.info + "</p>";
+              
+              // Update the UI hierarchy based on your requirements
+              document.getElementById('status-heading').innerHTML = "<span class='success-heading'>Congratulations - you have discovered an ecosystem service!</span>";
+              document.getElementById('status-text').innerHTML = st.info;
+              document.getElementById('map-heading').innerText = "Discover more ESS services";
             }
           }
         });
       }, function(error) {
         console.log("GPS Error: ", error);
-      }, { enableHighAccuracy: true }); // Forces phone to use real GPS, not just cell towers
+      }, { enableHighAccuracy: true });
     } else {
-      document.getElementById('info-panel').innerHTML = "<p>Please enable GPS location services to play.</p>";
+      document.getElementById('status-text').innerHTML = "Please enable GPS location services in your browser to play.";
     }
   </script>
 </body>
