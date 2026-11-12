@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1B4332" />
 
-  <!-- Leaflet CSS & JS (Cached on initial load via sw.js for offline use) -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -46,7 +45,7 @@
       z-index: 1;
     }
 
-    /* Custom Map Marker Styling (44x44px min touch target) */
+    /* 44x44px Custom Map Pins */
     .ess-pin {
       width: 44px;
       height: 44px;
@@ -69,7 +68,7 @@
       transform: scale(0.92);
     }
 
-    /* User GPS Dot with Radar Pulse */
+    /* Live User GPS Dot */
     .gps-dot {
       width: 18px;
       height: 18px;
@@ -85,7 +84,7 @@
       100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
     }
 
-    /* UI Overlay Layer */
+    /* Floating Map HUD */
     .ui-layer {
       position: absolute;
       inset: 0;
@@ -97,7 +96,6 @@
     }
     .interactive { pointer-events: auto; }
 
-    /* STATE 2: Top Floating HUD */
     .top-hud {
       margin: env(safe-area-inset-top, 12px) 16px 0 16px;
       padding: 10px 14px;
@@ -109,6 +107,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
+      z-index: 1600;
     }
     .progress-pill {
       display: flex;
@@ -151,7 +150,6 @@
     }
     .icon-btn:active { background: #f3f4f6; }
 
-    /* Bottom Wayfinding Controls */
     .bottom-hud {
       padding: 0 16px calc(env(safe-area-inset-bottom, 16px) + 8px) 16px;
       display: flex;
@@ -174,7 +172,6 @@
     }
     .recenter-btn:active { transform: scale(0.94); }
 
-    /* Nearest Station Strip */
     .nearest-strip {
       width: 100%;
       background: var(--surface);
@@ -185,6 +182,7 @@
       align-items: center;
       justify-content: space-between;
       font-size: 0.9rem;
+      cursor: pointer;
     }
     .nearest-strip strong { color: var(--forest); }
     .dist-badge {
@@ -196,88 +194,7 @@
       font-size: 0.8rem;
     }
 
-    /* Modals (State 1, Legend, State 4) */
-    .modal-backdrop {
-      position: absolute;
-      inset: 0;
-      background: rgba(27, 67, 50, 0.55);
-      backdrop-filter: blur(4px);
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      pointer-events: auto;
-    }
-    .modal-card {
-      background: #ffffff;
-      width: 100%;
-      max-width: 400px;
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      box-shadow: var(--shadow);
-      text-align: center;
-      max-height: 85dvh;
-      overflow-y: auto;
-    }
-    .modal-emblem {
-      width: 56px;
-      height: 56px;
-      background: #ecfdf5;
-      color: var(--emerald);
-      border-radius: 50%;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-    }
-    .modal-card h1 {
-      margin: 0 0 10px 0;
-      font-size: 1.4rem;
-      color: var(--forest);
-    }
-    .modal-card p {
-      margin: 0 0 20px 0;
-      font-size: 1rem;
-      line-height: 1.5;
-      color: var(--text-muted);
-    }
-    .lang-pills {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .lang-pill {
-      flex: 1;
-      min-height: 44px;
-      border-radius: var(--radius-md);
-      border: 2px solid #e5e7eb;
-      background: #ffffff;
-      font-weight: 700;
-      font-size: 1rem;
-      color: var(--text-main);
-      cursor: pointer;
-    }
-    .lang-pill.active {
-      border-color: var(--forest);
-      background: #ecfdf5;
-      color: var(--forest);
-    }
-    .primary-btn {
-      width: 100%;
-      min-height: 48px;
-      background: var(--forest);
-      color: #ffffff;
-      border: none;
-      border-radius: var(--radius-md);
-      font-size: 1.05rem;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(27, 67, 50, 0.25);
-    }
-    .primary-btn:active { background: var(--emerald); }
-
-    /* STATE 3: Station Discovery Bottom Sheet */
+    /* STATE 1 (Initial View): Station Discovery Sheet */
     .bottom-sheet {
       position: absolute;
       left: 0;
@@ -287,8 +204,8 @@
       background: #ffffff;
       border-top-left-radius: 24px;
       border-top-right-radius: 24px;
-      box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
-      max-height: 78dvh;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.22);
+      max-height: 82dvh;
       display: flex;
       flex-direction: column;
       transform: translateY(105%);
@@ -318,12 +235,13 @@
     .congrats-banner {
       background: #ecfdf5;
       color: var(--emerald);
+      border: 1px solid #a7f3d0;
       font-weight: 800;
-      font-size: 0.9rem;
-      padding: 8px 12px;
-      border-radius: 8px;
+      font-size: 0.95rem;
+      padding: 10px 14px;
+      border-radius: 10px;
       margin-bottom: 12px;
-      display: inline-block;
+      display: block;
     }
     .cat-pill {
       display: inline-block;
@@ -393,12 +311,72 @@
     }
     .footer-sublabel {
       text-align: center;
-      font-size: 0.88rem;
+      font-size: 0.9rem;
       font-weight: 700;
-      color: var(--text-muted);
+      color: var(--forest);
       margin-bottom: 8px;
     }
+    .primary-btn {
+      width: 100%;
+      min-height: 48px;
+      background: var(--forest);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(27, 67, 50, 0.25);
+    }
+    .primary-btn:active { background: var(--emerald); }
 
+    /* Modals (Legend & Completion) */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(27, 67, 50, 0.55);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 400px;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+    .modal-emblem {
+      width: 56px;
+      height: 56px;
+      background: #ecfdf5;
+      color: var(--emerald);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      font-size: 1.6rem;
+    }
+    .modal-card h1 {
+      margin: 0 0 10px 0;
+      font-size: 1.35rem;
+      color: var(--forest);
+    }
+    .modal-card p {
+      margin: 0 0 20px 0;
+      font-size: 0.98rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
     .hidden { display: none !important; }
     .legend-list { text-align: left; margin-bottom: 20px; }
     .legend-item { margin-bottom: 10px; font-size: 0.92rem; }
@@ -407,14 +385,14 @@
 </head>
 <body>
 
-  <!-- Interactive Leaflet Map -->
+  <!-- Full-Screen Map Canvas -->
   <div id="map"></div>
 
-  <!-- STATE 2: Active Map Exploration HUD -->
+  <!-- Map Exploration HUD -->
   <div class="ui-layer">
     <div class="top-hud interactive">
       <div class="progress-pill">
-        <span id="hud-progress-text">0 / 10</span>
+        <span id="hud-progress-text">1 / 10</span>
         <div class="progress-bar-wrap">
           <div id="hud-progress-bar" class="progress-bar-fill"></div>
         </div>
@@ -436,21 +414,21 @@
           <span id="nearest-label">Nächste Station:</span>
           <strong id="nearest-name">...</strong>
         </div>
-        <span class="dist-badge" id="nearest-dist">Tap Pin</span>
+        <span class="dist-badge" id="nearest-dist">Pin tippen</span>
       </div>
     </div>
   </div>
 
-  <!-- STATE 3: Station Discovery Bottom Sheet -->
-  <div id="station-sheet" class="bottom-sheet">
-    <div class="sheet-handle-bar" onclick="closeSheet()">
+  <!-- STATE 1 (Immediate Entry Screen on QR Scan): Station Discovery Sheet -->
+  <div id="station-sheet" class="bottom-sheet open">
+    <div class="sheet-handle-bar" onclick="findNextStation()">
       <div class="sheet-handle"></div>
     </div>
     <div class="sheet-scroll">
       <div class="congrats-banner" id="sheet-congrats">
         Congratulations! You have discovered an ecosystem service
       </div>
-      <div><span class="cat-pill" id="sheet-category">Regulating</span></div>
+      <div><span class="cat-pill" id="sheet-category">Cultural Service</span></div>
       <h2 class="sheet-title" id="sheet-title">Station Title</h2>
       <div class="habitat-art" id="sheet-art"></div>
       <div class="sheet-body" id="sheet-body"></div>
@@ -466,24 +444,6 @@
     </div>
   </div>
 
-  <!-- STATE 1: Welcome & Language Modal -->
-  <div id="welcome-modal" class="modal-backdrop">
-    <div class="modal-card">
-      <div class="modal-emblem">
-        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 22c4-4 8-7.5 8-12a8 8 0 1 0-16 0c0 4.5 4 8 8 12Z"/><circle cx="12" cy="10" r="3"/>
-        </svg>
-      </div>
-      <h1 id="welcome-title">Tierpark Zittau: Ecosystem Services Quest</h1>
-      <p id="welcome-desc">Entdecke 10 versteckte ökologische Leistungen direkt hier im Tierpark. Laufe zu den markierten Punkten oder tippe sie direkt auf der Karte an.</p>
-      <div class="lang-pills">
-        <button class="lang-pill active" id="pill-de" onclick="setLanguage('de')">Deutsch</button>
-        <button class="lang-pill" id="pill-en" onclick="setLanguage('en')">English</button>
-      </div>
-      <button class="primary-btn" id="welcome-start-btn" onclick="startQuest()">Erkundung starten</button>
-    </div>
-  </div>
-
   <!-- ESS Category Legend Modal -->
   <div id="legend-modal" class="modal-backdrop hidden">
     <div class="modal-card">
@@ -493,7 +453,7 @@
     </div>
   </div>
 
-  <!-- STATE 4: Quest Completion Modal -->
+  <!-- STATE 3: Quest Completion Modal -->
   <div id="complete-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="modal-emblem">🏆</div>
@@ -507,16 +467,13 @@
     // --- 1. Bilingual UI Copy ---
     const i18n = {
       de: {
-        welcomeTitle: "Tierpark Zittau: Ökosystem-Quest",
-        welcomeDesc: "Entdecke 10 versteckte Leistungen der Natur im Tierpark. Laufe zu den Stationen oder tippe einen Pin direkt auf der Karte an.",
-        startBtn: "Erkundung starten",
         nearestLabel: "Nächste Station:",
         congrats: "Congratulations! You have discovered an ecosystem service",
         footerSub: "Discover more spots to finish the quest",
         findNext: "Find next..",
         spottedBtn: "✓ Vor Ort entdeckt!",
         legendTitle: "4 Kategorien der Natur",
-        legendClose: "Weiter erkunden",
+        legendClose: "Zurück zur Karte",
         legendHtml: `
           <div class="legend-item"><strong>Regulierend:</strong> Kühlung durch Bäume, Luftfilterung & Wasserrückhalt.</div>
           <div class="legend-item"><strong>Versorgend:</strong> Nahrung, Frischwasser & genetische Vielfalt.</div>
@@ -528,9 +485,6 @@
         completeBtn: "Karte & Stationen ansehen"
       },
       en: {
-        welcomeTitle: "Tierpark Zittau: Ecosystem Services Quest",
-        welcomeDesc: "Uncover 10 hidden ecological functions across the park. Walk near any station pin or tap it directly on the map to unlock.",
-        startBtn: "Start Exploring",
         nearestLabel: "Next station:",
         congrats: "Congratulations! You have discovered an ecosystem service",
         footerSub: "Discover more spots to finish the quest",
@@ -556,13 +510,13 @@
         id: 1, lat: 50.901860, lng: 14.831783, icon: "🎓",
         de: {
           cat: "Kulturelle Leistung", title: "Zentrales Gehege & Umweltbildung",
-          p1: "Direkt am Startpunkt verbindet der Tierpark Besucher mit heimischen und bedrohten Tierarten. Dieses unmittelbare Naturerlebnis fördert Umweltbewusstsein und emotionale Verbundenheit.",
+          p1: "Direkt an diesem Standort verbindet der Tierpark Besucher mit heimischen und bedrohten Tierarten. Dieses unmittelbare Naturerlebnis fördert Umweltbewusstsein und emotionale Verbundenheit.",
           p2: "Studien zeigen, dass schon 20 Minuten Naturbeobachtung das Stresslevel messbar senken.",
           prompt: "Kannst du die Infotafel zum Artenschutz entdecken?"
         },
         en: {
           cat: "Cultural Service", title: "Central Enclosure & Nature Education",
-          p1: "Right at the heart of the park, direct encounters with native and endangered species foster ecological literacy and deep empathy for wildlife.",
+          p1: "Right at this spot, direct encounters with native and endangered species foster ecological literacy and deep empathy for wildlife.",
           p2: "Research shows that spending just 20 minutes observing nature measurably lowers cortisol levels.",
           prompt: "Can you spot the species conservation board nearby?"
         }
@@ -592,7 +546,7 @@
         },
         en: {
           cat: "Regulating Service", title: "Wildflower Strips & Pollinator Corridor",
-          p1: "Wild bees, bumblebees, and butterflies rely on unmownnectar patches across the zoo. Globally, over 75% of food crops depend on animal pollination.",
+          p1: "Wild bees, bumblebees, and butterflies rely on nectar patches across the zoo. Globally, over 75% of food crops depend on animal pollination.",
           p2: "The park acts as an essential stepping-stone habitat linking urban gardens with surrounding meadows.",
           prompt: "Can you spot any pollinators visiting nearby plants?"
         }
@@ -704,12 +658,21 @@
       }
     ];
 
-    // --- 3. State & Persistence (localStorage) ---
+    // --- 3. State & URL QR Parameter Parsing ---
     let currentLang = localStorage.getItem('tpz_lang') || 'de';
     let unlockedIds = JSON.parse(localStorage.getItem('tpz_unlocked') || '[]');
     let spottedIds = JSON.parse(localStorage.getItem('tpz_spotted') || '[]');
-    let activeStationId = null;
+    let activeStationId = 1;
     let userCoords = null;
+    let gpsInitialized = false;
+
+    // Detect QR Code Parameter (?station=1 to 10), fallback to Station 1
+    function getScannedStationId() {
+      const params = new URLSearchParams(window.location.search);
+      const parsed = parseInt(params.get('station'), 10);
+      if (parsed >= 1 && parsed <= stations.length) return parsed;
+      return 1; // Default to Station 1 (50.901860, 14.831783)
+    }
 
     // --- 4. Initialize Leaflet Map ---
     const map = L.map('map', { zoomControl: false }).setView([50.901860, 14.831783], 17);
@@ -727,17 +690,15 @@
       stations.forEach(st => {
         const isUnlocked = unlockedIds.includes(st.id);
 
-        // 25m Geofence Ring
         rings[st.id] = L.circle([st.lat, st.lng], {
           color: isUnlocked ? '#40916C' : '#E07A5F',
           fillColor: isUnlocked ? '#40916C' : '#E07A5F',
-          fillOpacity: 0.16,
+          fillOpacity: 0.18,
           weight: 2,
           radius: 25,
           interactive: false
         }).addTo(map);
 
-        // Custom HTML Pin (44x44px touch target)
         const pinIcon = L.divIcon({
           className: '',
           html: `<div id="pin-${st.id}" class="ess-pin ${isUnlocked ? 'unlocked' : ''}">${isUnlocked ? '✓' : st.id}</div>`,
@@ -751,7 +712,6 @@
       });
     }
 
-    // Live User GPS Marker
     const userIcon = L.divIcon({
       className: '',
       html: `<div class="gps-dot"></div>`,
@@ -760,30 +720,30 @@
     });
     const userMarker = L.marker([0, 0], { icon: userIcon, zIndexOffset: 1000 });
 
-    // --- 5. Core Unlock & Sheet Logic ---
+    // --- 5. Unlock & Sheet Logic ---
     function triggerStation(id) {
       const st = stations.find(s => s.id === id);
       if (!st) return;
       activeStationId = id;
 
-      const newlyUnlocked = !unlockedIds.includes(id);
-      if (newlyUnlocked) {
+      if (!unlockedIds.includes(id)) {
         unlockedIds.push(id);
         localStorage.setItem('tpz_unlocked', JSON.stringify(unlockedIds));
 
-        // Update Pin & Ring Visuals
         const pinEl = document.getElementById(`pin-${id}`);
         if (pinEl) {
           pinEl.classList.add('unlocked');
           pinEl.innerText = '✓';
         }
-        rings[id].setStyle({ color: '#40916C', fillColor: '#40916C' });
+        if (rings[id]) {
+          rings[id].setStyle({ color: '#40916C', fillColor: '#40916C' });
+        }
         updateProgressHUD();
       }
 
       populateSheet(st);
       document.getElementById('station-sheet').classList.add('open');
-      map.flyTo([st.lat - 0.00035, st.lng], 18, { duration: 0.45 });
+      map.setView([st.lat - 0.0003, st.lng], 18);
     }
 
     function populateSheet(st) {
@@ -820,30 +780,29 @@
       spotBtn.innerText = i18n[currentLang].spottedBtn;
     }
 
-    function closeSheet() {
-      document.getElementById('station-sheet').classList.remove('open');
-      if (unlockedIds.length === stations.length) {
-        document.getElementById('complete-modal').classList.remove('hidden');
-      }
-    }
-
+    // Collapses the Congratulations sheet and frames all points + user GPS on the map
     function findNextStation() {
-      closeSheet();
+      document.getElementById('station-sheet').classList.remove('open');
+      initGeolocation();
+
       const remaining = stations.filter(s => !unlockedIds.includes(s.id));
       if (remaining.length === 0) {
         document.getElementById('complete-modal').classList.remove('hidden');
         return;
       }
-      const next = getNearestStation(remaining);
-      map.flyTo([next.lat, next.lng], 17, { duration: 0.6 });
+
+      // Frame all park stations so the user sees the full quest layout
+      const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
+      if (userCoords) bounds.extend(userCoords);
+      map.flyToBounds(bounds, { padding: [50, 50], duration: 0.7 });
     }
 
     function getNearestStation(list) {
-      if (!userCoords) return list[0];
+      const refPoint = userCoords || [stations[activeStationId - 1].lat, stations[activeStationId - 1].lng];
       let nearest = list[0];
       let minDist = Infinity;
       list.forEach(st => {
-        const d = map.distance(userCoords, [st.lat, st.lng]);
+        const d = map.distance(refPoint, [st.lat, st.lng]);
         if (d < minDist) { minDist = d; nearest = st; }
       });
       return nearest;
@@ -884,15 +843,9 @@
     function setLanguage(lang) {
       currentLang = lang;
       localStorage.setItem('tpz_lang', lang);
-
-      document.getElementById('pill-de').classList.toggle('active', lang === 'de');
-      document.getElementById('pill-en').classList.toggle('active', lang === 'en');
       document.getElementById('btn-lang').innerText = lang.toUpperCase();
 
       const ui = i18n[lang];
-      document.getElementById('welcome-title').innerText = ui.welcomeTitle;
-      document.getElementById('welcome-desc').innerText = ui.welcomeDesc;
-      document.getElementById('welcome-start-btn').innerText = ui.startBtn;
       document.getElementById('nearest-label').innerText = ui.nearestLabel;
       document.getElementById('legend-title').innerText = ui.legendTitle;
       document.getElementById('legend-content').innerHTML = ui.legendHtml;
@@ -920,20 +873,17 @@
       document.getElementById('complete-modal').classList.add('hidden');
     }
 
-    // --- 7. GPS Tracking & Quest Start ---
-    function startQuest() {
-      document.getElementById('welcome-modal').classList.add('hidden');
-      initGeolocation();
-    }
-
+    // --- 7. Live GPS Tracking ---
     function initGeolocation() {
-      if (!('geolocation' in navigator)) return;
+      if (gpsInitialized || !('geolocation' in navigator)) return;
+      gpsInitialized = true;
+
       navigator.geolocation.watchPosition(pos => {
         userCoords = [pos.coords.latitude, pos.coords.longitude];
         userMarker.setLatLng(userCoords).addTo(map);
         updateProgressHUD();
 
-        // Auto-unlock station within 25 meters
+        // Auto-unlock other stations when walking within 25m
         stations.forEach(st => {
           if (!unlockedIds.includes(st.id)) {
             const d = map.distance(userCoords, [st.lat, st.lng]);
@@ -941,15 +891,17 @@
           }
         });
       }, err => {
-        console.warn('GPS Fallback to manual tap:', err.message);
+        console.warn('GPS Fallback to manual tap or QR:', err.message);
       }, { enableHighAccuracy: true, maximumAge: 5000 });
     }
 
     function recenterMap() {
+      initGeolocation();
       if (userCoords) {
         map.flyTo(userCoords, 18, { duration: 0.5 });
       } else {
-        map.flyTo([50.901860, 14.831783], 17, { duration: 0.5 });
+        const bounds = L.latLngBounds(stations.map(s => [s.lat, s.lng]));
+        map.flyToBounds(bounds, { padding: [50, 50], duration: 0.5 });
       }
     }
 
@@ -960,9 +912,12 @@
       });
     }
 
-    // Boot
+    // --- Boot Immediately into Scanned Station ("Congratulations" View First) ---
     renderStations();
     setLanguage(currentLang);
+    const initialStation = getScannedStationId();
+    triggerStation(initialStation);
+    initGeolocation();
   </script>
 </body>
 </html>
