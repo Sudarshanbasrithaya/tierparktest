@@ -1,204 +1,968 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Tierpark Ecosystem Services</title>
-  <!-- Viewport fit prevents zoom issues and handles notches on modern phones -->
+  <title>Tierpark Zittau: Ecosystem Services Explorer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  
+  <meta name="theme-color" content="#1B4332" />
+
+  <!-- Leaflet CSS & JS (Cached on initial load via sw.js for offline use) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <style>
-    /* Mobile-First Layout Reset */
-    * { box-sizing: border-box; }
-    body, html { 
-      margin: 0; 
-      padding: 0; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-      /* Uses dynamic viewport height so mobile browser bars don't break the layout */
-      height: 100dvh; 
-      background-color: #f8f9fa;
+    :root {
+      --forest: #1B4332;
+      --emerald: #2D6A4F;
+      --terracotta: #E07A5F;
+      --moss: #40916C;
+      --azure: #2563EB;
+      --surface: rgba(255, 255, 255, 0.96);
+      --text-main: #1F2937;
+      --text-muted: #4B5563;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+      --radius-lg: 20px;
+      --radius-md: 12px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #e5e7eb;
+      color: var(--text-main);
+    }
+
+    /* Full-bleed Map Canvas */
+    #map {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Custom Map Marker Styling (44x44px min touch target) */
+    .ess-pin {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background-color: var(--terracotta);
+      border: 3px solid #ffffff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 16px;
+      transition: transform 0.2s ease, background-color 0.3s ease;
+    }
+    .ess-pin.unlocked {
+      background-color: var(--moss);
+    }
+    .ess-pin:active {
+      transform: scale(0.92);
+    }
+
+    /* User GPS Dot with Radar Pulse */
+    .gps-dot {
+      width: 18px;
+      height: 18px;
+      background-color: var(--azure);
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 rgba(37, 99, 235, 0.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.6); }
+      70% { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+    }
+
+    /* UI Overlay Layer */
+    .ui-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 1000;
+      pointer-events: none;
       display: flex;
       flex-direction: column;
-      overflow: hidden; 
+      justify-content: space-between;
     }
-    
-    /* Top Information Card */
-    #info-panel { 
-      padding: 20px; 
-      background: #ffffff; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 1000;
-      flex-shrink: 0;
-      max-height: 50vh; /* Prevents text from covering the whole map */
-      overflow-y: auto;
-      border-bottom-left-radius: 16px;
-      border-bottom-right-radius: 16px;
+    .interactive { pointer-events: auto; }
+
+    /* STATE 2: Top Floating HUD */
+    .top-hud {
+      margin: env(safe-area-inset-top, 12px) 16px 0 16px;
+      padding: 10px 14px;
+      background: var(--surface);
+      backdrop-filter: blur(8px);
+      border-radius: 999px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
-    
-    h2 { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.25rem; }
-    p { margin: 0 0 10px 0; color: #4a5568; line-height: 1.5; font-size: 1rem; }
-    .success-heading { color: #27ae60; font-weight: 800; font-size: 1.15rem; display: block; margin-bottom: 8px;}
-    
-    /* Action Area & Button */
-    #action-area {
-      display: none; 
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid #edf2f7;
+    .progress-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: var(--forest);
     }
-    .action-text {
+    .progress-bar-wrap {
+      width: 64px;
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--moss);
+      transition: width 0.4s ease;
+    }
+    .hud-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .icon-btn {
+      min-height: 38px;
+      padding: 0 12px;
+      border-radius: 999px;
+      border: 1.5px solid #d1d5db;
+      background: #ffffff;
+      color: var(--forest);
       font-weight: 700;
-      color: #2d3748;
-      margin-bottom: 12px;
-      text-align: center;
-    }
-    .btn-next {
-      background-color: #3182ce;
-      color: white;
-      border: none;
-      padding: 14px 20px;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      font-weight: bold;
+      font-size: 0.85rem;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .icon-btn:active { background: #f3f4f6; }
+
+    /* Bottom Wayfinding Controls */
+    .bottom-hud {
+      padding: 0 16px calc(env(safe-area-inset-bottom, 16px) + 8px) 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 12px;
+    }
+    .recenter-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: none;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--forest);
+    }
+    .recenter-btn:active { transform: scale(0.94); }
+
+    /* Nearest Station Strip */
+    .nearest-strip {
       width: 100%;
-      box-shadow: 0 4px 6px rgba(49, 130, 206, 0.2);
+      background: var(--surface);
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.9rem;
     }
-    .btn-next:active { background-color: #2b6cb0; }
-    
-    /* Map Area */
-    #map { 
-      flex-grow: 1; 
-      width: 100%; 
-      z-index: 1; 
+    .nearest-strip strong { color: var(--forest); }
+    .dist-badge {
+      background: #ecfdf5;
+      color: var(--emerald);
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: 0.8rem;
     }
+
+    /* Modals (State 1, Legend, State 4) */
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(27, 67, 50, 0.55);
+      backdrop-filter: blur(4px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background: #ffffff;
+      width: 100%;
+      max-width: 400px;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      max-height: 85dvh;
+      overflow-y: auto;
+    }
+    .modal-emblem {
+      width: 56px;
+      height: 56px;
+      background: #ecfdf5;
+      color: var(--emerald);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    .modal-card h1 {
+      margin: 0 0 10px 0;
+      font-size: 1.4rem;
+      color: var(--forest);
+    }
+    .modal-card p {
+      margin: 0 0 20px 0;
+      font-size: 1rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+    .lang-pills {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .lang-pill {
+      flex: 1;
+      min-height: 44px;
+      border-radius: var(--radius-md);
+      border: 2px solid #e5e7eb;
+      background: #ffffff;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+    .lang-pill.active {
+      border-color: var(--forest);
+      background: #ecfdf5;
+      color: var(--forest);
+    }
+    .primary-btn {
+      width: 100%;
+      min-height: 48px;
+      background: var(--forest);
+      color: #ffffff;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(27, 67, 50, 0.25);
+    }
+    .primary-btn:active { background: var(--emerald); }
+
+    /* STATE 3: Station Discovery Bottom Sheet */
+    .bottom-sheet {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1500;
+      background: #ffffff;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
+      box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
+      max-height: 78dvh;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(105%);
+      transition: transform 0.32s cubic-bezier(0.2, 0.9, 0.3, 1);
+      pointer-events: auto;
+    }
+    .bottom-sheet.open {
+      transform: translateY(0%);
+    }
+    .sheet-handle-bar {
+      padding: 12px 0 6px 0;
+      display: flex;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .sheet-handle {
+      width: 44px;
+      height: 5px;
+      background: #d1d5db;
+      border-radius: 99px;
+    }
+    .sheet-scroll {
+      padding: 6px 20px 20px 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .congrats-banner {
+      background: #ecfdf5;
+      color: var(--emerald);
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+    .cat-pill {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 4px 10px;
+      border-radius: 99px;
+      background: #f3f4f6;
+      color: var(--forest);
+      margin-bottom: 8px;
+    }
+    .sheet-title {
+      margin: 0 0 12px 0;
+      font-size: 1.35rem;
+      color: var(--forest);
+    }
+    .habitat-art {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #d8f3dc, #95d5b2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    .sheet-body p {
+      font-size: 1rem;
+      line-height: 1.55;
+      color: var(--text-main);
+      margin: 0 0 12px 0;
+    }
+    .spot-prompt {
+      background: #f8fafc;
+      border: 1.5px solid #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-top: 14px;
+    }
+    .spot-prompt-title {
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      color: var(--forest);
+    }
+    .spot-btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1.5px solid var(--emerald);
+      background: #ffffff;
+      color: var(--emerald);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .spot-btn.done {
+      background: var(--emerald);
+      color: #ffffff;
+    }
+    .sheet-footer {
+      padding: 12px 20px calc(env(safe-area-inset-bottom, 16px) + 6px) 20px;
+      border-top: 1px solid #f1f5f9;
+      background: #ffffff;
+    }
+    .footer-sublabel {
+      text-align: center;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .hidden { display: none !important; }
+    .legend-list { text-align: left; margin-bottom: 20px; }
+    .legend-item { margin-bottom: 10px; font-size: 0.92rem; }
+    .legend-item strong { color: var(--forest); }
   </style>
 </head>
 <body>
 
-  <!-- Top Info Panel -->
-  <div id="info-panel">
-    <h2 id="status-heading">Tierpark Zittau Explorer</h2>
-    <div id="status-text">
-      <p>Tap any map pin below or walk towards it to uncover its hidden ecosystem service!</p>
+  <!-- Interactive Leaflet Map -->
+  <div id="map"></div>
+
+  <!-- STATE 2: Active Map Exploration HUD -->
+  <div class="ui-layer">
+    <div class="top-hud interactive">
+      <div class="progress-pill">
+        <span id="hud-progress-text">0 / 10</span>
+        <div class="progress-bar-wrap">
+          <div id="hud-progress-bar" class="progress-bar-fill"></div>
+        </div>
+      </div>
+      <div class="hud-actions">
+        <button class="icon-btn" id="btn-legend" onclick="toggleLegend(true)">ESS Info</button>
+        <button class="icon-btn" id="btn-lang" onclick="cycleLanguage()">DE</button>
+      </div>
     </div>
-    
-    <div id="action-area">
-      <div class="action-text">Discover more spots to finish the quest 👇</div>
-      <button class="btn-next" onclick="resetView()">Find next..</button>
+
+    <div class="bottom-hud">
+      <button class="recenter-btn interactive" onclick="recenterMap()" aria-label="Recenter GPS">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>
+        </svg>
+      </button>
+      <div class="nearest-strip interactive" onclick="focusNearestStation()">
+        <div>
+          <span id="nearest-label">Nächste Station:</span>
+          <strong id="nearest-name">...</strong>
+        </div>
+        <span class="dist-badge" id="nearest-dist">Tap Pin</span>
+      </div>
     </div>
   </div>
 
-  <!-- Map Area -->
-  <div id="map"></div>
+  <!-- STATE 3: Station Discovery Bottom Sheet -->
+  <div id="station-sheet" class="bottom-sheet">
+    <div class="sheet-handle-bar" onclick="closeSheet()">
+      <div class="sheet-handle"></div>
+    </div>
+    <div class="sheet-scroll">
+      <div class="congrats-banner" id="sheet-congrats">
+        Congratulations! You have discovered an ecosystem service
+      </div>
+      <div><span class="cat-pill" id="sheet-category">Regulating</span></div>
+      <h2 class="sheet-title" id="sheet-title">Station Title</h2>
+      <div class="habitat-art" id="sheet-art"></div>
+      <div class="sheet-body" id="sheet-body"></div>
+
+      <div class="spot-prompt">
+        <div class="spot-prompt-title" id="sheet-prompt-q">Did you spot it?</div>
+        <button class="spot-btn" id="sheet-spot-btn" onclick="markSpotted()">✓ Observed on site</button>
+      </div>
+    </div>
+    <div class="sheet-footer">
+      <div class="footer-sublabel" id="sheet-footer-sub">Discover more spots to finish the quest</div>
+      <button class="primary-btn" id="sheet-next-btn" onclick="findNextStation()">Find next..</button>
+    </div>
+  </div>
+
+  <!-- STATE 1: Welcome & Language Modal -->
+  <div id="welcome-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-emblem">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22c4-4 8-7.5 8-12a8 8 0 1 0-16 0c0 4.5 4 8 8 12Z"/><circle cx="12" cy="10" r="3"/>
+        </svg>
+      </div>
+      <h1 id="welcome-title">Tierpark Zittau: Ecosystem Services Quest</h1>
+      <p id="welcome-desc">Entdecke 10 versteckte ökologische Leistungen direkt hier im Tierpark. Laufe zu den markierten Punkten oder tippe sie direkt auf der Karte an.</p>
+      <div class="lang-pills">
+        <button class="lang-pill active" id="pill-de" onclick="setLanguage('de')">Deutsch</button>
+        <button class="lang-pill" id="pill-en" onclick="setLanguage('en')">English</button>
+      </div>
+      <button class="primary-btn" id="welcome-start-btn" onclick="startQuest()">Erkundung starten</button>
+    </div>
+  </div>
+
+  <!-- ESS Category Legend Modal -->
+  <div id="legend-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <h1 id="legend-title">Ökosystemleistungen (ESS)</h1>
+      <div class="legend-list" id="legend-content"></div>
+      <button class="primary-btn" onclick="toggleLegend(false)" id="legend-close-btn">Schließen</button>
+    </div>
+  </div>
+
+  <!-- STATE 4: Quest Completion Modal -->
+  <div id="complete-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-emblem">🏆</div>
+      <h1 id="complete-title">Quest abgeschlossen!</h1>
+      <p id="complete-desc">Du hast alle 10 Ökosystemleistungen im Tierpark Zittau entdeckt – von Mikroklima-Regulierung bis zum Erhalt der Biodiversität.</p>
+      <button class="primary-btn" id="complete-btn" onclick="closeCompletionModal()">Karte & Stationen ansehen</button>
+    </div>
+  </div>
 
   <script>
-    // 1. Initialize Map. Hide default top-left zoom so it doesn't get covered by the text panel.
-    var map = L.map('map', { zoomControl: false }).setView([50.901860, 14.831783], 17);
-    
-    // Move zoom controls to the bottom right of the screen
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-    
+    // --- 1. Bilingual UI Copy ---
+    const i18n = {
+      de: {
+        welcomeTitle: "Tierpark Zittau: Ökosystem-Quest",
+        welcomeDesc: "Entdecke 10 versteckte Leistungen der Natur im Tierpark. Laufe zu den Stationen oder tippe einen Pin direkt auf der Karte an.",
+        startBtn: "Erkundung starten",
+        nearestLabel: "Nächste Station:",
+        congrats: "Congratulations! You have discovered an ecosystem service",
+        footerSub: "Discover more spots to finish the quest",
+        findNext: "Find next..",
+        spottedBtn: "✓ Vor Ort entdeckt!",
+        legendTitle: "4 Kategorien der Natur",
+        legendClose: "Weiter erkunden",
+        legendHtml: `
+          <div class="legend-item"><strong>Regulierend:</strong> Kühlung durch Bäume, Luftfilterung & Wasserrückhalt.</div>
+          <div class="legend-item"><strong>Versorgend:</strong> Nahrung, Frischwasser & genetische Vielfalt.</div>
+          <div class="legend-item"><strong>Kulturell:</strong> Erholung, Naturbildung & Inspiration im Tierpark.</div>
+          <div class="legend-item"><strong>Unterstützend:</strong> Bodenbildung, Nährstoffkreisläufe & Lebensräume.</div>
+        `,
+        completeTitle: "Alle 10 Stationen entdeckt!",
+        completeDesc: "Stark! Du hast alle vier Kategorien von Ökosystemleistungen im Tierpark Zittau freigeschaltet.",
+        completeBtn: "Karte & Stationen ansehen"
+      },
+      en: {
+        welcomeTitle: "Tierpark Zittau: Ecosystem Services Quest",
+        welcomeDesc: "Uncover 10 hidden ecological functions across the park. Walk near any station pin or tap it directly on the map to unlock.",
+        startBtn: "Start Exploring",
+        nearestLabel: "Next station:",
+        congrats: "Congratulations! You have discovered an ecosystem service",
+        footerSub: "Discover more spots to finish the quest",
+        findNext: "Find next..",
+        spottedBtn: "✓ Spotted on site!",
+        legendTitle: "Ecosystem Service Categories",
+        legendClose: "Back to Map",
+        legendHtml: `
+          <div class="legend-item"><strong>Regulating:</strong> Microclimate cooling, air filtration & flood buffering.</div>
+          <div class="legend-item"><strong>Provisioning:</strong> Fresh water, forage & genetic resources.</div>
+          <div class="legend-item"><strong>Cultural:</strong> Education, mental restoration & wildlife connection.</div>
+          <div class="legend-item"><strong>Supporting:</strong> Soil formation, nutrient cycling & habitat creation.</div>
+        `,
+        completeTitle: "Quest Complete (10/10)!",
+        completeDesc: "Amazing work! You have unlocked all four categories of Ecosystem Services across Tierpark Zittau.",
+        completeBtn: "Review Map & Stations"
+      }
+    };
+
+    // --- 2. 10 Stations Dataset around Tierpark Zittau (50.901860, 14.831783) ---
+    const stations = [
+      {
+        id: 1, lat: 50.901860, lng: 14.831783, icon: "🎓",
+        de: {
+          cat: "Kulturelle Leistung", title: "Zentrales Gehege & Umweltbildung",
+          p1: "Direkt am Startpunkt verbindet der Tierpark Besucher mit heimischen und bedrohten Tierarten. Dieses unmittelbare Naturerlebnis fördert Umweltbewusstsein und emotionale Verbundenheit.",
+          p2: "Studien zeigen, dass schon 20 Minuten Naturbeobachtung das Stresslevel messbar senken.",
+          prompt: "Kannst du die Infotafel zum Artenschutz entdecken?"
+        },
+        en: {
+          cat: "Cultural Service", title: "Central Enclosure & Nature Education",
+          p1: "Right at the heart of the park, direct encounters with native and endangered species foster ecological literacy and deep empathy for wildlife.",
+          p2: "Research shows that spending just 20 minutes observing nature measurably lowers cortisol levels.",
+          prompt: "Can you spot the species conservation board nearby?"
+        }
+      },
+      {
+        id: 2, lat: 50.902350, lng: 14.831150, icon: "🌳",
+        de: {
+          cat: "Regulierende Leistung", title: "Alter Baumbestand & Mikroklima",
+          p1: "Die dichten Baumkronen des Weinauparks wirken wie eine natürliche Klimaanlage. Durch Verdunstung (Evapotranspiration) und Schattenwurf kühlen sie die Umgebung im Sommer um bis zu 4 °C ab.",
+          p2: "Gleichzeitig filtern die Blätter Feinstaub aus der Stadtluft.",
+          prompt: "Spürst du den Temperaturunterschied unter dem Blätterdach?"
+        },
+        en: {
+          cat: "Regulating Service", title: "Mature Canopy & Microclimate Cooling",
+          p1: "The dense tree canopy acts as a natural air conditioner. Through evapotranspiration and shade, mature trees cool local summer air temperatures by up to 4 °C.",
+          p2: "Their leaves also trap airborne particulates and store carbon.",
+          prompt: "Can you feel the cooler air beneath the tree canopy?"
+        }
+      },
+      {
+        id: 3, lat: 50.901450, lng: 14.832400, icon: "🐝",
+        de: {
+          cat: "Regulierende Leistung", title: "Blühwiesen & Bestäuber-Korridor",
+          p1: "Wildbienen, Hummeln und Schmetterlinge nutzen die naturnahen Blühstreifen im Park als Nahrungsquelle. Ohne Bestäubung würden über 75 % unserer Nutzpflanzen kaum Früchte tragen.",
+          p2: "Der Tierpark bildet ein wichtiges Trittstein-Biotop zwischen Stadt und Umland.",
+          prompt: "Siehst du aktuell Insekten an den Blüten oder Sträuchern?"
+        },
+        en: {
+          cat: "Regulating Service", title: "Wildflower Strips & Pollinator Corridor",
+          p1: "Wild bees, bumblebees, and butterflies rely on unmownnectar patches across the zoo. Globally, over 75% of food crops depend on animal pollination.",
+          p2: "The park acts as an essential stepping-stone habitat linking urban gardens with surrounding meadows.",
+          prompt: "Can you spot any pollinators visiting nearby plants?"
+        }
+      },
+      {
+        id: 4, lat: 50.902100, lng: 14.832950, icon: "💧",
+        de: {
+          cat: "Regulierende Leistung", title: "Teiche & Natürlicher Wasserrückhalt",
+          p1: "Die Wasserflächen und unversiegelten Uferzonen nehmen bei Starkregen große Wassermengen wie ein Schwamm auf und geben sie langsam an das Grundwasser ab.",
+          p2: "Wasserpflanzen und Mikroorganismen reinigen das Wasser zudem auf natürliche Weise.",
+          prompt: "Entdeckst du Wasservögel oder Uferpflanzen am Wasser?"
+        },
+        en: {
+          cat: "Regulating Service", title: "Ponds & Natural Flood Buffering",
+          p1: "Water bodies and permeable banks absorb heavy rainfall like a living sponge, recharging groundwater and reducing downstream flood peaks.",
+          p2: "Aquatic plants and microbes naturally filter excess nutrients from surface runoff.",
+          prompt: "Can you spot waterfowl or reeds along the water's edge?"
+        }
+      },
+      {
+        id: 5, lat: 50.901200, lng: 14.831300, icon: "🪵",
+        de: {
+          cat: "Unterstützende Leistung", title: "Totholz & Nährstoffkreislauf",
+          p1: "Altes Holz ist voller Leben: Pilze, Käfer und Moose zersetzen abgestorbene Äste und verwandeln sie in fruchtbaren Humusboden.",
+          p2: "Dieser unsichtbare Recycling-Prozess bildet die Grundlage für das gesamte Pflanzenwachstum im Park.",
+          prompt: "Findest du Moos oder Pilze auf einem alten Baumstamm?"
+        },
+        en: {
+          cat: "Supporting Service", title: "Deadwood & Nutrient Cycling",
+          p1: "Fallen logs teem with life. Fungi, beetles, and mosses break down woody fibers and turn them into rich, fertile humus.",
+          p2: "This natural recycling engine underpins all plant growth across the park.",
+          prompt: "Can you spot moss or fungi growing on old wood?"
+        }
+      },
+      {
+        id: 6, lat: 50.902650, lng: 14.831950, icon: "🦉",
+        de: {
+          cat: "Unterstützende Leistung", title: "Brutplätze & Städtische Biodiversität",
+          p1: "Neben den Zootieren leben Dutzende frei lebende Vogel- und Fledermausarten in den Baumhöhlen und Nistkästen des Parks.",
+          p2: "Singvögel und Fledermäuse regulieren ganz nebenbei tausende Stechmücken und Forstschädlinge pro Nacht.",
+          prompt: "Hörst du gerade frei lebende Singvögel in den Baumkronen?"
+        },
+        en: {
+          cat: "Supporting Service", title: "Nesting Cavities & Urban Biodiversity",
+          p1: "Beyond zoo animals, dozens of wild bird and bat species nest in the park's tree cavities and nesting boxes.",
+          p2: "Every night, local bats and songbirds naturally regulate thousands of mosquitoes and leaf pests.",
+          prompt: "Listen closely—can you hear wild songbirds in the trees?"
+        }
+      },
+      {
+        id: 7, lat: 50.901600, lng: 14.830600, icon: "🌾",
+        de: {
+          cat: "Versorgende Leistung", title: "Alte Haustierrassen & Genetische Vielfalt",
+          p1: "Traditionelle Nutztierrassen bewahren wertvolle genetische Eigenschaften wie Robustheit und Krankheitsresistenz.",
+          p2: "Diese genetische Schatzkammer ist entscheidend, um die Landwirtschaft an zukünftige Klimaveränderungen anzupassen.",
+          prompt: "Beobachte den Körperbau der Tiere in diesem Bereich."
+        },
+        en: {
+          cat: "Provisioning Service", title: "Heritage Breeds & Genetic Reservoirs",
+          p1: "Rare domestic breeds preserve vital genetic traits such as hardiness, foraging ability, and disease resistance.",
+          p2: "Protecting genetic diversity ensures resilient food systems under changing climate conditions.",
+          prompt: "Observe the unique coat and traits of the animals here."
+        }
+      },
+      {
+        id: 8, lat: 50.902400, lng: 14.832600, icon: "🍃",
+        de: {
+          cat: "Regulierende Leistung", title: "Natürlicher Lärmschutz & Ruheinsel",
+          p1: "Dichte Hecken, Sträucher und weicher Waldboden schlucken Schallwellen umliegender Straßen deutlich effektiver als Betonwände.",
+          p2: "So entsteht eine akustische Erholungszone für Mensch und Tier.",
+          prompt: "Achte einen Moment nur auf die Naturgeräusche um dich herum."
+        },
+        en: {
+          cat: "Regulating Service", title: "Acoustic Buffering & Quiet Refuge",
+          p1: "Multi-layered shrubs, foliage, and soft forest soil absorb urban traffic noise far more effectively than hard walls.",
+          p2: "This acoustic shelter protects sensitive wildlife and offers visitors mental restoration.",
+          prompt: "Pause for 5 seconds and listen to the natural soundscape."
+        }
+      },
+      {
+        id: 9, lat: 50.901150, lng: 14.832100, icon: "🌱",
+        de: {
+          cat: "Unterstützende Leistung", title: "Lebendiger Boden & Kohlenstoffspeicher",
+          p1: "Eine einzige Handvoll gesunder Parkboden enthält Milliarden Mikroorganismen. Unversiegelte Böden speichern weltweit mehr Kohlenstoff als alle Wälder und die Atmosphäre zusammen.",
+          p2: "Regenwürmer lockern das Erdreich, sodass Wurzeln optimal atmen können.",
+          prompt: "Siehst du den Unterschied zwischen Waldboden und gepflastertem Weg?"
+        },
+        en: {
+          cat: "Supporting Service", title: "Living Soil & Carbon Storage",
+          p1: "A single handful of healthy park soil holds billions of microbes. Globally, intact soils store more carbon than the atmosphere and all forests combined.",
+          p2: "Earthworms aerate the ground, allowing roots and rainwater to penetrate deeply.",
+          prompt: "Notice the soft leaf litter covering the unpaved ground."
+        }
+      },
+      {
+        id: 10, lat: 50.901950, lng: 14.831250, icon: "🤝",
+        de: {
+          cat: "Kulturelle Leistung", title: "Gemeinschaftsort & Naturverbundenheit",
+          p1: "Grünflächen wie der Tierpark Zittau stärken den sozialen Zusammenhalt: Familien, Schulklassen und Generationen kommen hier zusammen.",
+          p2: "Wer die Leistungen der Natur vor der eigenen Haustür versteht, schützt sie auch im Alltag.",
+          prompt: "Welche Station hat dich heute am meisten überrascht?"
+        },
+        en: {
+          cat: "Cultural Service", title: "Community Stewardship & Connection",
+          p1: "Green spaces like Tierpark Zittau bring generations together, turning scientific ecology into shared lived experience.",
+          p2: "Recognizing nature's daily services inspires conservation both inside and beyond the park gates.",
+          prompt: "Which ecosystem service surprised you the most today?"
+        }
+      }
+    ];
+
+    // --- 3. State & Persistence (localStorage) ---
+    let currentLang = localStorage.getItem('tpz_lang') || 'de';
+    let unlockedIds = JSON.parse(localStorage.getItem('tpz_unlocked') || '[]');
+    let spottedIds = JSON.parse(localStorage.getItem('tpz_spotted') || '[]');
+    let activeStationId = null;
+    let userCoords = null;
+
+    // --- 4. Initialize Leaflet Map ---
+    const map = L.map('map', { zoomControl: false }).setView([50.901860, 14.831783], 17);
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    var stations = [
-      { 
-        id: 1, 
-        name: "Central Tierpark Enclosure", 
-        lat: 50.901860, 
-        lng: 14.831783, 
-        unlocked: false, 
-        info: "<p><b>Cultural & Educational Value:</b> This specific location provides a space for learning about native and exotic biodiversity, fostering a deep connection with nature.</p>" 
-      },
-      {
-        id: 2,
-        name: "Weinaupark Woodland Edge",
-        lat: 50.902500,
-        lng: 14.831000,
-        unlocked: false,
-        info: "<p><b>Microclimate Regulation:</b> The dense trees here provide vital shade and cooling through evapotranspiration.</p>"
-      }
-    ];
+    const markers = {};
+    const rings = {};
 
-    var circles = {};
-    var markers = {};
+    function renderStations() {
+      stations.forEach(st => {
+        const isUnlocked = unlockedIds.includes(st.id);
 
-    function unlockStation(st) {
-      if (!st.unlocked) {
-        st.unlocked = true;
-        // Turn the circle green to show completion
-        circles[st.id].setStyle({color: '#27ae60', fillColor: '#2ecc71'});
-        // Fade the pin out slightly so they know it's "done"
-        markers[st.id].setOpacity(0.5); 
-      }
-      
-      document.getElementById('status-heading').innerHTML = "<span class='success-heading'>Congratulations! You have discovered an ecosystem service!</span>";
-      document.getElementById('status-text').innerHTML = st.info;
-      document.getElementById('action-area').style.display = "block";
-      
-      // Auto-pan the map to center on the spot they just clicked
-      map.flyTo([st.lat, st.lng], 18, { duration: 0.5 });
-    }
+        // 25m Geofence Ring
+        rings[st.id] = L.circle([st.lat, st.lng], {
+          color: isUnlocked ? '#40916C' : '#E07A5F',
+          fillColor: isUnlocked ? '#40916C' : '#E07A5F',
+          fillOpacity: 0.16,
+          weight: 2,
+          radius: 25,
+          interactive: false
+        }).addTo(map);
 
-    function resetView() {
-      // Zooms out to show all stations so they can easily find the next one
-      var bounds = L.latLngBounds(stations.map(function(st) { return [st.lat, st.lng]; }));
-      
-      // The paddingTopLeft ensures the map centers *below* the white text card
-      var panelHeight = document.getElementById('info-panel').offsetHeight;
-      map.fitBounds(bounds, { padding: [20, 20], paddingTopLeft: [0, panelHeight] });
-    }
+        // Custom HTML Pin (44x44px touch target)
+        const pinIcon = L.divIcon({
+          className: '',
+          html: `<div id="pin-${st.id}" class="ess-pin ${isUnlocked ? 'unlocked' : ''}">${isUnlocked ? '✓' : st.id}</div>`,
+          iconSize: [44, 44],
+          iconAnchor: [22, 22]
+        });
 
-    // Generate Map Visuals
-    stations.forEach(st => {
-      // 1. Draw the radius circle (Visual only)
-      var circle = L.circle([st.lat, st.lng], {
-        color: '#e74c3c',
-        fillColor: '#e74c3c',
-        fillOpacity: 0.2,
-        radius: 25,
-        interactive: false // Turn off click here so it doesn't block the pin
-      }).addTo(map);
-      circles[st.id] = circle;
-
-      // 2. Drop the physical map pin (This fixes the mobile touch issue!)
-      var marker = L.marker([st.lat, st.lng]).addTo(map);
-      markers[st.id] = marker;
-
-      // 3. Bind the touch/click event securely to the pin
-      marker.on('click', function() {
-        unlockStation(st);
+        const marker = L.marker([st.lat, st.lng], { icon: pinIcon }).addTo(map);
+        marker.on('click', () => triggerStation(st.id));
+        markers[st.id] = marker;
       });
+    }
+
+    // Live User GPS Marker
+    const userIcon = L.divIcon({
+      className: '',
+      html: `<div class="gps-dot"></div>`,
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
     });
+    const userMarker = L.marker([0, 0], { icon: userIcon, zIndexOffset: 1000 });
 
-    var userMarker = L.circleMarker([0,0], {
-      color: '#ffffff', weight: 2, fillColor: '#3498db', fillOpacity: 1, radius: 8, zIndexOffset: 1000
-    }).addTo(map);
+    // --- 5. Core Unlock & Sheet Logic ---
+    function triggerStation(id) {
+      const st = stations.find(s => s.id === id);
+      if (!st) return;
+      activeStationId = id;
 
-    if ('geolocation' in navigator) {
-      navigator.geolocation.watchPosition(function(position) {
-        var userLat = position.coords.latitude;
-        var userLng = position.coords.longitude;
-        
-        userMarker.setLatLng([userLat, userLng]);
+      const newlyUnlocked = !unlockedIds.includes(id);
+      if (newlyUnlocked) {
+        unlockedIds.push(id);
+        localStorage.setItem('tpz_unlocked', JSON.stringify(unlockedIds));
 
+        // Update Pin & Ring Visuals
+        const pinEl = document.getElementById(`pin-${id}`);
+        if (pinEl) {
+          pinEl.classList.add('unlocked');
+          pinEl.innerText = '✓';
+        }
+        rings[id].setStyle({ color: '#40916C', fillColor: '#40916C' });
+        updateProgressHUD();
+      }
+
+      populateSheet(st);
+      document.getElementById('station-sheet').classList.add('open');
+      map.flyTo([st.lat - 0.00035, st.lng], 18, { duration: 0.45 });
+    }
+
+    function populateSheet(st) {
+      const copy = st[currentLang];
+      const ui = i18n[currentLang];
+
+      document.getElementById('sheet-congrats').innerText = ui.congrats;
+      document.getElementById('sheet-category').innerText = copy.cat;
+      document.getElementById('sheet-title').innerText = `${st.id}. ${copy.title}`;
+      document.getElementById('sheet-art').innerHTML = `<span style="font-size:3.4rem">${st.icon}</span>`;
+      document.getElementById('sheet-body').innerHTML = `<p>${copy.p1}</p><p>${copy.p2}</p>`;
+      document.getElementById('sheet-prompt-q').innerText = copy.prompt;
+      document.getElementById('sheet-footer-sub').innerText = ui.footerSub;
+      document.getElementById('sheet-next-btn').innerText = ui.findNext;
+
+      const spotBtn = document.getElementById('sheet-spot-btn');
+      if (spottedIds.includes(st.id)) {
+        spotBtn.classList.add('done');
+        spotBtn.innerText = ui.spottedBtn;
+      } else {
+        spotBtn.classList.remove('done');
+        spotBtn.innerText = currentLang === 'de' ? '✓ Vor Ort beobachtet' : '✓ Observed on site';
+      }
+    }
+
+    function markSpotted() {
+      if (!activeStationId) return;
+      if (!spottedIds.includes(activeStationId)) {
+        spottedIds.push(activeStationId);
+        localStorage.setItem('tpz_spotted', JSON.stringify(spottedIds));
+      }
+      const spotBtn = document.getElementById('sheet-spot-btn');
+      spotBtn.classList.add('done');
+      spotBtn.innerText = i18n[currentLang].spottedBtn;
+    }
+
+    function closeSheet() {
+      document.getElementById('station-sheet').classList.remove('open');
+      if (unlockedIds.length === stations.length) {
+        document.getElementById('complete-modal').classList.remove('hidden');
+      }
+    }
+
+    function findNextStation() {
+      closeSheet();
+      const remaining = stations.filter(s => !unlockedIds.includes(s.id));
+      if (remaining.length === 0) {
+        document.getElementById('complete-modal').classList.remove('hidden');
+        return;
+      }
+      const next = getNearestStation(remaining);
+      map.flyTo([next.lat, next.lng], 17, { duration: 0.6 });
+    }
+
+    function getNearestStation(list) {
+      if (!userCoords) return list[0];
+      let nearest = list[0];
+      let minDist = Infinity;
+      list.forEach(st => {
+        const d = map.distance(userCoords, [st.lat, st.lng]);
+        if (d < minDist) { minDist = d; nearest = st; }
+      });
+      return nearest;
+    }
+
+    function focusNearestStation() {
+      const pool = stations.filter(s => !unlockedIds.includes(s.id));
+      const target = pool.length > 0 ? getNearestStation(pool) : stations[0];
+      map.flyTo([target.lat, target.lng], 18, { duration: 0.5 });
+    }
+
+    function updateProgressHUD() {
+      const count = unlockedIds.length;
+      document.getElementById('hud-progress-text').innerText = `${count} / ${stations.length}`;
+      document.getElementById('hud-progress-bar').style.width = `${(count / stations.length) * 100}%`;
+
+      const remaining = stations.filter(s => !unlockedIds.includes(s.id));
+      const nearestNameEl = document.getElementById('nearest-name');
+      const nearestDistEl = document.getElementById('nearest-dist');
+
+      if (remaining.length === 0) {
+        nearestNameEl.innerText = currentLang === 'de' ? 'Alle entdeckt! 🎉' : 'All discovered! 🎉';
+        nearestDistEl.innerText = '10/10';
+        return;
+      }
+
+      const next = getNearestStation(remaining);
+      nearestNameEl.innerText = `#${next.id} ${next[currentLang].title.split('&')[0]}`;
+      if (userCoords) {
+        const dist = Math.round(map.distance(userCoords, [next.lat, next.lng]));
+        nearestDistEl.innerText = `${dist} m`;
+      } else {
+        nearestDistEl.innerText = currentLang === 'de' ? 'Pin tippen' : 'Tap Pin';
+      }
+    }
+
+    // --- 6. Language & Modals ---
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('tpz_lang', lang);
+
+      document.getElementById('pill-de').classList.toggle('active', lang === 'de');
+      document.getElementById('pill-en').classList.toggle('active', lang === 'en');
+      document.getElementById('btn-lang').innerText = lang.toUpperCase();
+
+      const ui = i18n[lang];
+      document.getElementById('welcome-title').innerText = ui.welcomeTitle;
+      document.getElementById('welcome-desc').innerText = ui.welcomeDesc;
+      document.getElementById('welcome-start-btn').innerText = ui.startBtn;
+      document.getElementById('nearest-label').innerText = ui.nearestLabel;
+      document.getElementById('legend-title').innerText = ui.legendTitle;
+      document.getElementById('legend-content').innerHTML = ui.legendHtml;
+      document.getElementById('legend-close-btn').innerText = ui.legendClose;
+      document.getElementById('complete-title').innerText = ui.completeTitle;
+      document.getElementById('complete-desc').innerText = ui.completeDesc;
+      document.getElementById('complete-btn').innerText = ui.completeBtn;
+
+      if (activeStationId) {
+        const st = stations.find(s => s.id === activeStationId);
+        if (st) populateSheet(st);
+      }
+      updateProgressHUD();
+    }
+
+    function cycleLanguage() {
+      setLanguage(currentLang === 'de' ? 'en' : 'de');
+    }
+
+    function toggleLegend(show) {
+      document.getElementById('legend-modal').classList.toggle('hidden', !show);
+    }
+
+    function closeCompletionModal() {
+      document.getElementById('complete-modal').classList.add('hidden');
+    }
+
+    // --- 7. GPS Tracking & Quest Start ---
+    function startQuest() {
+      document.getElementById('welcome-modal').classList.add('hidden');
+      initGeolocation();
+    }
+
+    function initGeolocation() {
+      if (!('geolocation' in navigator)) return;
+      navigator.geolocation.watchPosition(pos => {
+        userCoords = [pos.coords.latitude, pos.coords.longitude];
+        userMarker.setLatLng(userCoords).addTo(map);
+        updateProgressHUD();
+
+        // Auto-unlock station within 25 meters
         stations.forEach(st => {
-          if (!st.unlocked) {
-            var distance = map.distance([userLat, userLng], [st.lat, st.lng]);
-            if (distance <= 25) {
-              unlockStation(st);
-            }
+          if (!unlockedIds.includes(st.id)) {
+            const d = map.distance(userCoords, [st.lat, st.lng]);
+            if (d <= 25) triggerStation(st.id);
           }
         });
-      }, function(error) {
-        console.log("GPS Error: ", error);
-      }, { enableHighAccuracy: true });
+      }, err => {
+        console.warn('GPS Fallback to manual tap:', err.message);
+      }, { enableHighAccuracy: true, maximumAge: 5000 });
     }
+
+    function recenterMap() {
+      if (userCoords) {
+        map.flyTo(userCoords, 18, { duration: 0.5 });
+      } else {
+        map.flyTo([50.901860, 14.831783], 17, { duration: 0.5 });
+      }
+    }
+
+    // --- 8. Register Offline Service Worker ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    // Boot
+    renderStations();
+    setLanguage(currentLang);
   </script>
 </body>
 </html>
