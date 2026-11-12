@@ -1,4 +1,5 @@
-const CACHE_NAME = 'tierpark-ess-v1';
+// Bumped to v2 so browsers immediately replace the old cached index.html
+const CACHE_NAME = 'tierpark-ess-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -22,10 +23,10 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Cache-First strategy for Map Tiles & Static Assets
+// Cache-First with ignoreSearch so ?station=1..10 QR scans work 100% offline
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;
       return fetch(event.request).then(networkResponse => {
         if (event.request.method === 'GET' && networkResponse.status === 200) {
